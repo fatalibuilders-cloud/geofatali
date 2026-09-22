@@ -61,7 +61,12 @@ class AppState extends ChangeNotifier {
   /// Point the app at a server. Verifies it before storing.
   Future<void> setBaseUrl(String value) async {
     final cleaned = _normalise(value);
-    final probe = GeoFataliApi(baseUrl: cleaned);
+    // A short timeout here: this is someone checking an address they just
+    // typed, and thirty seconds of spinner is a poor way to learn it is wrong.
+    final probe = GeoFataliApi(
+      baseUrl: cleaned,
+      timeout: const Duration(seconds: 8),
+    );
     final health = await probe.health();
     if (health['engine_version'] == null) {
       throw ApiException(
@@ -77,21 +82,55 @@ class AppState extends ChangeNotifier {
   }
 
   /// Accept what people actually type: a bare host, a host:port, or a full URL.
+  ///
+  /// The port is the trap. Someone types `192.168.1.24`, the URL resolves to
+  /// port 80, nothing is listening there, and the app waits out a timeout for
+  /// a server that is running perfectly well on 8000. So a private address
+  /// with no port gets 8000 — the port the backend documents and uvicorn
+  /// defaults to. A public host keeps the scheme default, because anything
+  /// hosted properly sits behind 443.
+  static const int defaultDevPort = 8000;
+
+  static final RegExp _privateHost = RegExp(
+    r'^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|localhost$)',
+  );
+
+  static bool isPrivateHost(String host) => _privateHost.hasMatch(host);
+
   static String _normalise(String value) {
     var v = value.trim();
     if (v.isEmpty) return v;
+
     if (!v.startsWith('http://') && !v.startsWith('https://')) {
       // Plain http for a private address, https for anything public: a phone
       // on site wifi talking to a laptop has no certificate.
-      final isPrivate = RegExp(r'^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|localhost)')
-          .hasMatch(v);
-      v = '${isPrivate ? 'http' : 'https'}://$v';
+      final hostPart = v.split('/').first.split(':').first;
+      v = '${isPrivateHost(hostPart) ? 'http' : 'https'}://$v';
     }
+
     while (v.endsWith('/')) {
       v = v.substring(0, v.length - 1);
     }
+
+    final parsed = Uri.tryParse(v);
+    if (parsed == null || parsed.host.isEmpty) return v;
+
+    // Uri.hasPort is false for a port that matches the scheme default, so
+    // someone who deliberately typed :80 would have it silently replaced.
+    // Read the port off the text they actually entered instead.
+    final authority = v.replaceFirst(RegExp(r'^https?://'), '').split('/').first;
+    final hasExplicitPort = RegExp(r':\d+$').hasMatch(authority);
+
+    if (!hasExplicitPort && isPrivateHost(parsed.host)) {
+      return parsed.replace(port: defaultDevPort).toString();
+    }
     return v;
   }
+
+  /// Exposed for tests: address handling is the thing people get wrong, so it
+  /// is worth testing directly rather than only through a live probe.
+  @visibleForTesting
+  static String normaliseForTest(String value) => _normalise(value);
 
   Future<void> signIn({required String email, required String password}) async {
     final session = await api.login(email: email, password: password);

@@ -127,7 +127,11 @@ void main() {
         throwsA(isA<ApiException>().having(
           (e) => e.message,
           'message',
-          allOf(contains('Could not reach'), contains('Settings')),
+          allOf(
+            contains('Could not reach'),
+            contains('port 8000'),          // names the port it actually tried
+            contains('--host 0.0.0.0'),     // the usual cause
+          ),
         )),
       );
     });

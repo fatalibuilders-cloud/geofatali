@@ -20,14 +20,18 @@ import '../models/models.dart';
 ///   read by a site technician — "a layer from 1.0 m to 3.0 m overlaps one
 ///   already logged" — and paraphrasing them here would throw that away.
 class GeoFataliApi {
-  GeoFataliApi({required this.baseUrl, http.Client? httpClient, this.token})
-      : _http = httpClient ?? http.Client();
+  GeoFataliApi({
+    required this.baseUrl,
+    http.Client? httpClient,
+    this.token,
+    Duration? timeout,
+  })  : _http = httpClient ?? http.Client(),
+        _timeout = timeout ?? const Duration(seconds: 30);
 
   final String baseUrl;
   final http.Client _http;
+  final Duration _timeout;
   String? token;
-
-  static const Duration _timeout = Duration(seconds: 30);
 
   Uri _uri(String path, [Map<String, String>? query]) {
     final normalised = baseUrl.endsWith('/')
@@ -59,10 +63,14 @@ class GeoFataliApi {
       }
           .timeout(_timeout);
     } on Exception catch (error) {
+      final port = uri.hasPort ? '${uri.port}' : (uri.scheme == 'https' ? '443' : '80');
       throw ApiException(
-        'Could not reach the server at $baseUrl.\n\n'
-        'Check the address in Settings, that the server is running, and that '
-        'this phone is on a network that can see it.\n\n$error',
+        'Could not reach the server at $baseUrl (port $port).\n\n'
+        'Check that:\n'
+        '  • the port is right — the backend runs on 8000 by default\n'
+        '  • the server was started with --host 0.0.0.0, not just localhost\n'
+        '  • this phone is on the same network, not mobile data\n'
+        '  • the machine\'s firewall allows the port\n\n$error',
       );
     }
 

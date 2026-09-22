@@ -59,6 +59,26 @@ PYTHONPATH=../engineering-engine uvicorn app.main:app --host 0.0.0.0 --port 8000
 Find the laptop's address on the wifi (`ip addr` on Linux, `ipconfig getifaddr
 en0` on macOS) and enter it in the app — for example `192.168.1.24:8000`.
 
+A private address entered without a port gets **8000**, which is what the
+backend runs on. Type the port explicitly and that is what is used.
+
+### When it will not connect
+
+Check these in order — the first two account for almost every case:
+
+1. **The port.** `curl http://<address>:8000/health` from the laptop itself
+   should return JSON with an engine version. If that fails, nothing else will.
+2. **The bind address.** Without `--host 0.0.0.0` uvicorn listens only on the
+   laptop, and the phone cannot see it however good the network is.
+3. **The network.** Phone on wifi, not mobile data, and the same wifi. Guest
+   networks and "client isolation" on a router block device-to-device traffic
+   entirely.
+4. **The firewall.** `sudo ufw allow 8000` on Linux; on macOS allow incoming
+   connections for Python when prompted.
+
+A timeout rather than an immediate refusal points at 3 or 4: packets are being
+dropped rather than rejected, which means they are not reaching the process.
+
 The app allows plain HTTP to private addresses only (`10.x`, `172.16–31.x`,
 `192.168.x`, localhost) — see
 `apps/mobile/android/app/src/main/res/xml/network_security_config.xml`. Anything
