@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../main.dart';
+import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'settings_screen.dart';
 
 /// The front door: sign in, or create an account.
 ///
@@ -34,7 +36,9 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   bool get _canSubmit =>
-      _email.text.trim().contains('@') && _password.text.length >= 8;
+      _email.text.trim().contains('@') &&
+      _password.text.length >= 8 &&
+      AppScope.of(context).connection == ServerConnection.connected;
 
   Future<void> _submit() async {
     if (!_canSubmit) return;
@@ -75,7 +79,9 @@ class _SignInScreenState extends State<SignInScreen> {
                 'Geotechnical and foundation engineering, from the ground up.',
                 style: TextStyle(fontSize: 14, color: GeoTheme.inkSoft, height: 1.4),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 28),
+              const _ConnectionStatus(),
+              const SizedBox(height: 24),
 
               Text(
                 _registering ? 'Create your account' : 'Sign in',
@@ -183,6 +189,103 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// What the app is doing about finding a server.
+///
+/// Discovery happens without being asked, but not invisibly: a sweep takes a
+/// few seconds, and an unexplained pause on a sign-in screen reads as a broken
+/// app. When nothing is found this is also where the way out lives.
+class _ConnectionStatus extends StatelessWidget {
+  const _ConnectionStatus();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    return AnimatedBuilder(
+      animation: state,
+      builder: (context, _) {
+        final (icon, colour, label, detail) = switch (state.connection) {
+          ServerConnection.checking => (
+              Icons.sync,
+              GeoTheme.inkSoft,
+              'Connecting…',
+              null,
+            ),
+          ServerConnection.searching => (
+              Icons.wifi_find_outlined,
+              GeoTheme.info,
+              'Looking for your server on this network…',
+              state.scanTotal > 0
+                  ? '${state.scanned} of ${state.scanTotal} addresses'
+                  : null,
+            ),
+          ServerConnection.connected => (
+              Icons.check_circle_outline,
+              GeoTheme.pass,
+              'Connected',
+              Uri.tryParse(state.baseUrl)?.host,
+            ),
+          ServerConnection.notFound => (
+              Icons.error_outline,
+              GeoTheme.warning,
+              'No server found on this network',
+              'Start the backend, then search again.',
+            ),
+        };
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: colour.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colour.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 17, color: colour),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: colour)),
+                    if (detail != null) ...[
+                      const SizedBox(height: 2),
+                      Text(detail,
+                          style: const TextStyle(
+                              fontSize: 11.5, color: GeoTheme.inkSoft)),
+                    ],
+                  ],
+                ),
+              ),
+              if (state.connection == ServerConnection.notFound) ...[
+                TextButton(
+                  onPressed: state.rediscover,
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                  child: const Text('Retry'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  ),
+                  style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact),
+                  child: const Text('Enter it'),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

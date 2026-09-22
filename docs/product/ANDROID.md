@@ -41,8 +41,26 @@ This is the part people are surprised by. **The app stores nothing on the
 phone.** It is a client for a GeoFatali server, and it signs you in against
 that server.
 
-The address is compiled into the build, so nobody is asked for an IP address
-when they open the app. Set it with a repository variable named
+The app finds the server by itself. On first launch it tries, in order:
+
+1. a server it connected to before;
+2. the address compiled into the build;
+3. **a sweep of the local network** — it takes its own address on the wifi,
+   walks the /24 it sits in, and asks each host whether it is a GeoFatali
+   server. The first one that returns a proper health document wins and is
+   remembered.
+
+So the usual case is: install the APK, start the backend, open the app, sign in
+with an email. No address is ever typed.
+
+The sweep only covers the /24 the phone is on, and only private ranges — a
+server on another subnet or behind a router will not be found, and those go
+through **Settings → Server**. A host merely answering on port 8000 is not
+accepted: it has to return the health document with an engine version in it, so
+a router admin page or a printer is not mistaken for a backend.
+
+For a hosted deployment the address is compiled into the build, so no sweep
+happens at all. Set it with a repository variable named
 `GEOFATALI_API_URL` (GitHub → Settings → Secrets and variables → Actions →
 Variables), for example `https://api.geofatali.com`. The CI build passes it
 through as a `--dart-define`.

@@ -8,10 +8,14 @@ import 'package:geofatali/state/app_state.dart';
 import 'package:geofatali/theme.dart';
 import 'package:geofatali/widgets/common.dart';
 
-Widget _wrap(Widget child) => MaterialApp(
-      theme: GeoTheme.build(),
-      home: AppScope(state: AppState(), child: child),
-    );
+Widget _wrap(Widget child, {ServerConnection? connection}) {
+  final state = AppState();
+  if (connection != null) state.setConnectionForTest(connection);
+  return MaterialApp(
+    theme: GeoTheme.build(),
+    home: AppScope(state: state, child: child),
+  );
+}
 
 void main() {
   testWidgets('the first screen asks for an email, not a server address',
@@ -34,14 +38,14 @@ void main() {
     expect(find.textContaining('cannot establish bearing capacity'), findsOneWidget);
   });
 
-  testWidgets('sign in is disabled until an email and password are entered',
-      (tester) async {
-    await tester.pumpWidget(_wrap(const SignInScreen()));
+  testWidgets('sign in needs a filled form AND a server', (tester) async {
+    await tester.pumpWidget(
+        _wrap(const SignInScreen(), connection: ServerConnection.connected));
     await tester.pump();
 
     FilledButton button() =>
         tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Sign in'));
-    expect(button().onPressed, isNull);
+    expect(button().onPressed, isNull, reason: 'empty form');
 
     await tester.enterText(find.widgetWithText(TextField, 'Email'), 'a@b.com');
     await tester.enterText(
@@ -49,6 +53,37 @@ void main() {
     await tester.pump();
 
     expect(button().onPressed, isNotNull);
+  });
+
+  testWidgets('sign in stays disabled while no server has been found',
+      (tester) async {
+    await tester.pumpWidget(
+        _wrap(const SignInScreen(), connection: ServerConnection.notFound));
+    await tester.pump();
+
+    await tester.enterText(find.widgetWithText(TextField, 'Email'), 'a@b.com');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Password'), 'a-long-enough-passphrase');
+    await tester.pump();
+
+    // Submitting would only produce a connection error; the screen says what
+    // is wrong and offers a way out instead.
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Sign in'))
+          .onPressed,
+      isNull,
+    );
+    expect(find.textContaining('No server found'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Retry'), findsOneWidget);
+  });
+
+  testWidgets('while searching, the screen says so rather than pausing',
+      (tester) async {
+    await tester.pumpWidget(
+        _wrap(const SignInScreen(), connection: ServerConnection.searching));
+    await tester.pump();
+    expect(find.textContaining('Looking for your server'), findsOneWidget);
   });
 
   testWidgets('creating an account asks for a name and warns about the role',
