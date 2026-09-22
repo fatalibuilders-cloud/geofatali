@@ -28,19 +28,21 @@ run in CI; nothing is listed as done because it is half-written.
 | 42, 50 | Immutability and audit | Calculations, reports and audit rows are append-only in the database; reports are revisioned |
 | 47 | Migrations | Numbered SQL files, applied in order, checksummed — an edited migration is refused |
 | 51 | Testing | Unit, regression, property, integration and persistence tests, the last against a real database |
+| 4, 7, 59 | Flutter Android client | Auth, projects, boreholes, soil layers with a drawn profile, SPT, bearing capacity, foundation screening and the construction steps |
+| 60 | Design system | Engineering-software look: restrained palette, tabular figures, provenance on every value, preliminary banner throughout |
+| — | Android release build | CI builds a sideloadable APK on every push and a Play App Bundle on a version tag |
 
 ## Not built yet
 
 | Spec section | Component | Why it is not here |
 |---|---|---|
-| 4, 59 | Flutter Android application | The whole client. The API it will call is defined, running and storing |
+| 48 | Offline mode and sync on the client | The app needs the server for everything; a borehole log is exactly what you record with no signal |
 | 31 | Pile capacity calculations | Returns NOT_IMPLEMENTED by design; needs validation against load-test data before release |
 | 32 | Video frame selection pipeline | Quality check, de-blur, dedupe, frame selection |
 | 41 | PDF rendering | Reports are stored as a structured document plus Markdown; the PDF service is next |
 | 10, 34 | Media upload | `soil_media` is in the schema; no object storage or signed-URL layer yet |
 | 43–45 | Subscriptions, payments, metering | Schema for usage exists; no billing |
 | 46 | Admin dashboard | — |
-| 48 | Offline mode and sync | Belongs with the mobile client |
 | 52 | AI evaluation dataset | No accuracy claim may be published before this exists |
 | 54 | Geotechnical map | PostGIS columns and indexes are in the migration, nothing reads them yet |
 | 55–56 | OCR, drawing interpretation, BIM | Roadmap phases 3 and 4 |

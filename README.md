@@ -42,6 +42,8 @@ otherwise, and that is enforced in code rather than in a disclaimer:
 
 ```
 geofatali/
+├── apps/
+│   └── mobile/               Flutter Android client, 23 tests
 ├── services/
 │   ├── engineering-engine/   pure Python, no dependencies, 202 tests
 │   │   └── geofatali_engine/
@@ -65,6 +67,7 @@ geofatali/
 │           └── security.py       Argon2id, JWT, roles
 ├── database/migrations/      PostgreSQL + PostGIS schema, applied in order
 ├── scripts/test-db.sh        starts a throwaway database for the tests
+├── .github/workflows/        CI: backend tests, and the Android APK build
 └── docs/
     ├── engineering/METHODS.md    every formula and its published source
     └── product/MVP-STATUS.md     what is built and what is not
@@ -166,6 +169,29 @@ Four of the product's promises are constraints, not conventions:
 One user cannot see another's site data: every read is scoped by the requesting
 account, and someone else's project returns 404 rather than 403 — a 403 would
 confirm the id exists.
+
+## The Android app
+
+`apps/mobile` is a Flutter client for the API: sign in, create a project,
+log a borehole and its strata, run a bearing capacity calculation, screen the
+foundation options, and read the construction sequence for the one you choose —
+with the hold points marked and the steps that exist because of *this* site
+labelled with what triggered them.
+
+It is a client, not a copy: the phone stores nothing but your session, and on
+first launch it asks for the address of your GeoFatali server. That is
+deliberate — the engineering runs in one place, where it is tested.
+
+The APK is built by GitHub Actions rather than on a laptop.
+**[docs/product/ANDROID.md](docs/product/ANDROID.md)** covers getting it onto a
+phone, running a backend it can reach, and what Google Play needs.
+
+```bash
+cd apps/mobile
+flutter pub get
+flutter test        # 23 tests
+flutter analyze
+```
 
 ## Where this sits
 

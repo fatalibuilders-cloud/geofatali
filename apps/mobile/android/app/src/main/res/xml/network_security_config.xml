@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  GeoFatali's backend is self-hosted, so the app has to be able to reach a
+  server on a private network: a laptop on the site wifi, or an instance on an
+  office LAN. Android 9 and later block plaintext HTTP by default, which would
+  make that impossible.
+
+  So cleartext is permitted for private address ranges ONLY. Anything on the
+  public internet must be HTTPS — a bearer token travelling in clear over the
+  open internet is a credential handed to whoever is listening.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Loopback, for an emulator talking to the host machine. -->
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+
+        <!-- RFC 1918 private ranges: the site wifi and the office LAN.
+             Android matches these as literal address prefixes. -->
+        <domain includeSubdomains="true">10.0.0.0/8</domain>
+        <domain includeSubdomains="true">172.16.0.0/12</domain>
+        <domain includeSubdomains="true">192.168.0.0/16</domain>
+    </domain-config>
+</network-security-config>

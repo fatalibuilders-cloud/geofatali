@@ -1,0 +1,51 @@
+name: Backend tests
+
+# The engine suite is pure Python. The API suite needs a real PostgreSQL with
+# PostGIS, because the schema's value is in constraints SQLite does not have.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: geofatali_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install
+        run: |
+          pip install -e services/engineering-engine[dev]
+          pip install -r services/api/requirements.txt
+
+      - name: Engine tests
+        working-directory: services/engineering-engine
+        run: python -m pytest -q
+
+      - name: API and persistence tests
+        working-directory: services/api
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/geofatali_test
+          JWT_SECRET: ci-only-secret
+        run: PYTHONPATH=../engineering-engine python -m pytest -q

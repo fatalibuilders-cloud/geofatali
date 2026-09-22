@@ -1,0 +1,24 @@
+name: geofatali
+description: "AI-assisted geotechnical and foundation engineering. A Fatalibuilders product."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Deliberately few. Every dependency is a thing that can break a release
+  # build, and this app's job is to talk to one API and render what it says.
+  http: ^1.2.2
+  shared_preferences: ^2.3.3
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

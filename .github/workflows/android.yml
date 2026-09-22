@@ -1,0 +1,113 @@
+name: Android build
+
+# The APK is built here rather than on a developer machine because GitHub's
+# runners have the Android SDK already, and because a build everyone can
+# reproduce beats "it worked on mine".
+#
+# Two outputs:
+#   * every push builds a debug-signed APK you can sideload to test;
+#   * a tag starting with v also builds a release App Bundle for Google Play,
+#     but only when the signing secrets are present.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.47.5'
+  APP_DIR: apps/mobile
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # The `secrets` context is not available in a step's `if:`, so the
+      # presence of a keystore is resolved once here, at job level, where it is.
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      # Analyze and test before building. A release that does not compile
+      # cleanly is not worth putting on a phone.
+      - name: Analyze
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter test
+
+      - name: Write the signing keystore
+        # Only when the secrets exist. Without them the build below falls back
+        # to debug signing, which is what a test APK needs anyway.
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=../upload-keystore.jks
+          EOF
+
+      - name: Build APK
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build apk --release
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: geofatali-apk
+          path: ${{ env.APP_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # The Play Store takes an App Bundle, not an APK, and it must be signed
+      # with a real upload key.
+      - name: Build App Bundle for Google Play
+        if: startsWith(github.ref, 'refs/tags/v') && env.HAS_KEYSTORE == 'true'
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build appbundle --release
+
+      - name: Upload the App Bundle
+        if: startsWith(github.ref, 'refs/tags/v') && env.HAS_KEYSTORE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: geofatali-aab
+          path: ${{ env.APP_DIR }}/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Clean up the keystore
+        if: always()
+        working-directory: ${{ env.APP_DIR }}
+        run: rm -f android/upload-keystore.jks android/key.properties
