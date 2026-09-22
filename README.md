@@ -73,7 +73,18 @@ geofatali/
     └── product/MVP-STATUS.md     what is built and what is not
 ```
 
-## Run it
+## Run the backend
+
+```bash
+cp .env.example .env
+echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
+docker compose up
+```
+
+PostgreSQL with PostGIS, migrations applied, and the API on port 8000 bound to
+every interface. It prints the addresses it can be reached on at startup.
+
+## Run the tests
 
 ```bash
 ./run-tests.sh          # 291 tests: engine, API, and persistence

@@ -62,10 +62,32 @@ PostgreSQL + PostGIS database behind it.
 ### Quickest: your laptop, same wifi as the phone
 
 ```bash
-# on the laptop
+cp .env.example .env
+echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
+docker compose up
+```
+
+That starts PostgreSQL with PostGIS, applies the migrations and serves the API
+on port 8000, bound to every interface. It prints the address to use:
+
+```
+  GeoFatali API 0.1.0
+
+  On this network:  http://192.168.100.16:8000
+  On this machine:  http://127.0.0.1:8000
+  Schema:           0002
+```
+
+Use the "On this network" line in the app.
+
+Without Docker, the same thing by hand. Note the migration step — skip it and
+every request fails with "relation does not exist":
+
+```bash
 cd services/api
 export DATABASE_URL=postgresql://user:pass@localhost/geofatali
 export JWT_SECRET=$(openssl rand -hex 32)
+PYTHONPATH=../engineering-engine python -m app.db.cli migrate
 PYTHONPATH=../engineering-engine uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 

@@ -1,0 +1,46 @@
+# Run the whole GeoFatali backend with one command:
+#
+#   cp .env.example .env     # then set JWT_SECRET
+#   docker compose up
+#
+# This brings up PostgreSQL with PostGIS, applies the migrations, and serves
+# the API on port 8000 bound to every interface — so a phone on the same wifi
+# can reach it at http://<this-machine>:8000.
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-geofatali}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geofatali}
+      POSTGRES_DB: ${POSTGRES_DB:-geofatali}
+    volumes:
+      - geofatali-db:/var/lib/postgresql/data
+    # Not published by default: the database has no business being reachable
+    # from the network. Uncomment only if you want to inspect it with psql.
+    # ports: ['5432:5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-geofatali}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofatali}:${POSTGRES_PASSWORD:-geofatali}@db:5432/${POSTGRES_DB:-geofatali}
+      # No default. The service refuses to start in production without it
+      # rather than signing tokens with a key every deployment would share.
+      JWT_SECRET: "${JWT_SECRET:?set JWT_SECRET in .env - generate one with openssl rand -hex 32}"
+      GEOFATALI_ENV: ${GEOFATALI_ENV:-development}
+    ports:
+      - '${API_PORT:-8000}:8000'
+    restart: unless-stopped
+
+volumes:
+  geofatali-db:

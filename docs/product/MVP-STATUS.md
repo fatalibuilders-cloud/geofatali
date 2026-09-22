@@ -27,6 +27,7 @@ run in CI; nothing is listed as done because it is half-written.
 | 6, 49 | Authentication and access control | Argon2id passwords, short-lived JWTs, five roles; every read scoped by user, a stranger's project is 404 not 403 |
 | 42, 50 | Immutability and audit | Calculations, reports and audit rows are append-only in the database; reports are revisioned |
 | 47 | Migrations | Numbered SQL files, applied in order, checksummed — an edited migration is refused |
+| 57 | Docker development environment | `docker compose up` brings up PostGIS, applies migrations and serves the API on every interface |
 | 51 | Testing | Unit, regression, property, integration and persistence tests, the last against a real database |
 | 4, 7, 59 | Flutter Android client | Auth, projects, boreholes, soil layers with a drawn profile, SPT, bearing capacity, foundation screening and the construction steps |
 | 60 | Design system | Engineering-software look: restrained palette, tabular figures, provenance on every value, preliminary banner throughout |

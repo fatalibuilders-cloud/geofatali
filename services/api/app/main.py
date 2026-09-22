@@ -68,6 +68,36 @@ from .schemas import (
     StepsRequest,
 )
 
+def _lan_addresses() -> list[str]:
+    """Every address this machine is reachable on, for the startup banner.
+
+    Printed because the commonest failure when testing from a phone is not
+    knowing which address to type, or not realising the server bound only to
+    localhost. Showing the answer beats explaining how to find it.
+    """
+    import socket
+
+    found: list[str] = []
+    try:
+        hostname = socket.gethostname()
+        for info in socket.getaddrinfo(hostname, None, socket.AF_INET):
+            address = info[4][0]
+            if address not in found and not address.startswith("127."):
+                found.append(address)
+    except OSError:
+        pass
+    if not found:
+        # getaddrinfo can miss the LAN address; ask the routing table instead.
+        try:
+            probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            probe.connect(("192.168.1.1", 1))  # no packet is sent
+            found.append(probe.getsockname()[0])
+            probe.close()
+        except OSError:
+            pass
+    return found
+
+
 app = FastAPI(
     title="GeoFatali API",
     version=ENGINE_VERSION,
@@ -133,6 +163,44 @@ async def _invalid_input(_request, exc: InvalidInput):
         status_code=422,
         content={"error": "INVALID_INPUT", "field": exc.field_name, "message": exc.message},
     )
+
+
+@app.on_event("startup")
+def _announce() -> None:
+    """Say where the server can be reached, and whether the schema is ready."""
+    import os
+
+    host = os.environ.get("GEOFATALI_BIND_HOST", "")
+    port = os.environ.get("GEOFATALI_PORT", "8000")
+    lines = ["", "  GeoFatali API " + ENGINE_VERSION, ""]
+
+    for address in _lan_addresses():
+        lines.append(f"  On this network:  http://{address}:{port}")
+    lines.append(f"  On this machine:  http://127.0.0.1:{port}")
+
+    if host not in ("0.0.0.0", "::"):
+        lines += [
+            "",
+            "  NOTE: if you did not start this with --host 0.0.0.0 it is listening",
+            "        on this machine only, and a phone will not reach it.",
+        ]
+
+    try:
+        version = current_version(db_engine())
+        if version is None:
+            lines += [
+                "",
+                "  WARNING: the database has no schema. Run:",
+                "             python -m app.db.cli migrate",
+            ]
+        else:
+            lines.append(f"  Schema:           {version}")
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        lines += ["", f"  WARNING: database unreachable ({type(exc).__name__}).",
+                  "           Check DATABASE_URL."]
+
+    lines.append("")
+    print("\n".join(lines), flush=True)
 
 
 @app.get("/health")
