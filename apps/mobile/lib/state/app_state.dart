@@ -5,18 +5,39 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api/client.dart';
 import '../models/models.dart';
 
-/// Application state: where the server is, and who is signed in.
+/// Application state: who is signed in.
+///
+/// The server address is baked in at build time rather than asked for on
+/// first launch. Opening an app and being asked for an IP address is not a
+/// reasonable thing to put in front of someone; they sign in with an email
+/// address and the app knows where its own backend is.
+///
+/// It is still overridable, in Settings, because the backend is self-hosted
+/// and someone running their own instance has to be able to point at it. That
+/// is an advanced setting, not the front door.
 ///
 /// The bearer token lives in the platform keystore rather than in shared
-/// preferences, because anyone holding it is the user. The server address is
-/// an ordinary preference — it is not a secret, and a technician changing
-/// sites will edit it often.
+/// preferences, because anyone holding it is the user.
 class AppState extends ChangeNotifier {
   AppState({FlutterSecureStorage? secureStorage})
       : _secure = secureStorage ?? const FlutterSecureStorage();
 
   static const _baseUrlKey = 'api_base_url';
   static const _tokenKey = 'auth_token';
+
+  /// Where this build talks to, unless someone has overridden it.
+  ///
+  /// Set at build time:
+  ///   flutter build apk --dart-define=GEOFATALI_API_URL=https://api.example.com
+  ///
+  /// The default is the Android emulator's alias for the host machine, which
+  /// makes `flutter run` work against a local backend with no configuration.
+  /// A shipped build must define this, or it points at nothing useful — the
+  /// CI workflow passes it from a repository variable.
+  static const String bakedInApiUrl = String.fromEnvironment(
+    'GEOFATALI_API_URL',
+    defaultValue: 'http://10.0.2.2:8000',
+  );
 
   final FlutterSecureStorage _secure;
 
@@ -26,14 +47,18 @@ class AppState extends ChangeNotifier {
   bool _ready = false;
   String? _lastError;
 
-  String? get baseUrl => _baseUrl;
+  /// The address in use: an override if one was set, otherwise this build's.
+  String get baseUrl => _baseUrl?.isNotEmpty == true ? _baseUrl! : bakedInApiUrl;
+
+  /// True when someone has pointed this install at their own server.
+  bool get hasOverride => _baseUrl?.isNotEmpty == true;
+
   Account? get account => _account;
   bool get ready => _ready;
-  bool get isConfigured => _baseUrl != null && _baseUrl!.isNotEmpty;
   bool get isSignedIn => _token != null && _account != null;
   String? get lastError => _lastError;
 
-  GeoFataliApi get api => GeoFataliApi(baseUrl: _baseUrl ?? '', token: _token);
+  GeoFataliApi get api => GeoFataliApi(baseUrl: baseUrl, token: _token);
 
   /// Load what was stored last time and try to restore the session.
   Future<void> restore() async {
@@ -45,7 +70,7 @@ class AppState extends ChangeNotifier {
       // A keystore that cannot be read is not fatal — it means signing in again.
       _token = null;
     }
-    if (isConfigured && _token != null) {
+    if (_token != null) {
       try {
         _account = await api.me();
       } on ApiException {
@@ -58,7 +83,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Point the app at a server. Verifies it before storing.
+  /// Point this install at a different server. Verifies it before storing.
   Future<void> setBaseUrl(String value) async {
     final cleaned = _normalise(value);
     // A short timeout here: this is someone checking an address they just
@@ -159,7 +184,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Forget the server address, sending the app back to setup.
+  /// Drop the override and go back to the address this build was made with.
   Future<void> clearBaseUrl() async {
     await signOut(notify: false);
     _baseUrl = null;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geofatali/main.dart';
 import 'package:geofatali/models/models.dart';
-import 'package:geofatali/screens/server_setup_screen.dart';
+import 'package:geofatali/screens/sign_in_screen.dart';
 import 'package:geofatali/screens/steps_screen.dart';
 import 'package:geofatali/state/app_state.dart';
 import 'package:geofatali/theme.dart';
@@ -14,18 +14,53 @@ Widget _wrap(Widget child) => MaterialApp(
     );
 
 void main() {
-  testWidgets('setup asks for a server and states what the app is not',
+  testWidgets('the first screen asks for an email, not a server address',
       (tester) async {
-    await tester.pumpWidget(_wrap(const ServerSetupScreen()));
+    await tester.pumpWidget(_wrap(const SignInScreen()));
     await tester.pump();
 
     expect(find.text('GeoFatali'), findsOneWidget);
-    expect(find.textContaining('WHERE IS YOUR SERVER'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Connect'), findsOneWidget);
+    expect(find.text('Sign in'), findsWidgets);
+    expect(find.widgetWithText(TextField, 'Email'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Password'), findsOneWidget);
 
-    // The honesty line is on the first screen, not buried in an about page.
+    // The thing this change was about: no IP address in front of a new user.
+    expect(find.textContaining('WHERE IS YOUR SERVER'), findsNothing);
+    expect(find.textContaining('192.168'), findsNothing);
+    expect(find.textContaining('server'), findsNothing);
+
+    // The honesty line stays on the first screen, not buried in an about page.
     expect(find.textContaining('not a site investigation'), findsOneWidget);
     expect(find.textContaining('cannot establish bearing capacity'), findsOneWidget);
+  });
+
+  testWidgets('sign in is disabled until an email and password are entered',
+      (tester) async {
+    await tester.pumpWidget(_wrap(const SignInScreen()));
+    await tester.pump();
+
+    FilledButton button() =>
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Sign in'));
+    expect(button().onPressed, isNull);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Email'), 'a@b.com');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Password'), 'a-long-enough-passphrase');
+    await tester.pump();
+
+    expect(button().onPressed, isNotNull);
+  });
+
+  testWidgets('creating an account asks for a name and warns about the role',
+      (tester) async {
+    await tester.pumpWidget(_wrap(const SignInScreen()));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Create an account'));
+    await tester.pump();
+
+    expect(find.widgetWithText(TextField, 'Your name'), findsOneWidget);
+    expect(find.textContaining('cannot be claimed here'), findsOneWidget);
   });
 
   testWidgets('the preliminary banner says what the output is not', (tester) async {

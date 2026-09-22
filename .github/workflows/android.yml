@@ -81,7 +81,22 @@ jobs:
 
       - name: Build APK
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build apk --release
+        env:
+          # Repository variable (Settings -> Secrets and variables -> Actions
+          # -> Variables). Not a secret: a backend URL is not sensitive, and
+          # it has to be readable to be useful.
+          API_URL: ${{ vars.GEOFATALI_API_URL }}
+        run: |
+          if [ -n "$API_URL" ]; then
+            echo "Building against $API_URL"
+            flutter build apk --release --dart-define=GEOFATALI_API_URL="$API_URL"
+          else
+            echo "::warning::GEOFATALI_API_URL is not set, so this build points at the \
+          Android emulator's host alias (10.0.2.2:8000). It will not reach anything from \
+          a real phone. Set the repository variable, or use Settings in the app to point \
+          at your own server."
+            flutter build apk --release
+          fi
 
       - name: Upload the APK
         uses: actions/upload-artifact@v4
@@ -96,7 +111,15 @@ jobs:
       - name: Build App Bundle for Google Play
         if: startsWith(github.ref, 'refs/tags/v') && env.HAS_KEYSTORE == 'true'
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build appbundle --release
+        env:
+          API_URL: ${{ vars.GEOFATALI_API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::GEOFATALI_API_URL is not set. A Play release must point at a \
+          real backend; refusing to publish a bundle aimed at an emulator address."
+            exit 1
+          fi
+          flutter build appbundle --release --dart-define=GEOFATALI_API_URL="$API_URL" 
 
       - name: Upload the App Bundle
         if: startsWith(github.ref, 'refs/tags/v') && env.HAS_KEYSTORE == 'true'

@@ -4,6 +4,12 @@ import '../main.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
+/// The front door: sign in, or create an account.
+///
+/// Nothing is asked for here except an email address and a password. The
+/// server this build talks to is compiled in — putting an IP address in front
+/// of someone opening an app for the first time is not a reasonable thing to
+/// do, and anyone self-hosting can point the app elsewhere from Settings.
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
 
@@ -27,8 +33,11 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
+  bool get _canSubmit =>
+      _email.text.trim().contains('@') && _password.text.length >= 8;
+
   Future<void> _submit() async {
-    if (_email.text.trim().isEmpty || _password.text.isEmpty) return;
+    if (!_canSubmit) return;
     setState(() => _busy = true);
     try {
       final state = AppScope.of(context);
@@ -50,26 +59,35 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppScope.of(context);
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 56, 20, 24),
+          padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.layers_outlined, size: 36, color: GeoTheme.navy),
-              const SizedBox(height: 14),
-              Text(_registering ? 'Create an account' : 'Sign in',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+              const Icon(Icons.layers_outlined, size: 42, color: GeoTheme.navy),
+              const SizedBox(height: 16),
+              const Text('GeoFatali',
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Text(state.baseUrl ?? '',
-                  style: const TextStyle(fontSize: 12.5, color: GeoTheme.inkSoft)),
-              const SizedBox(height: 28),
+              const Text(
+                'Geotechnical and foundation engineering, from the ground up.',
+                style: TextStyle(fontSize: 14, color: GeoTheme.inkSoft, height: 1.4),
+              ),
+              const SizedBox(height: 40),
+
+              Text(
+                _registering ? 'Create your account' : 'Sign in',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 16),
+
               if (_registering) ...[
                 TextField(
                   controller: _name,
                   textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
                     labelText: 'Your name',
                     prefixIcon: Icon(Icons.person_outline, size: 20),
@@ -77,31 +95,45 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
+
               TextField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
+                autofillHints: const [AutofillHints.email],
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
                   labelText: 'Email',
+                  hintText: 'you@example.com',
                   prefixIcon: Icon(Icons.mail_outline, size: 20),
                 ),
               ),
               const SizedBox(height: 12),
+
               TextField(
                 controller: _password,
                 obscureText: _obscure,
+                autofillHints: const [AutofillHints.password],
                 textInputAction: TextInputAction.go,
+                onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
                   labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock_outline, size: 20),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        size: 20),
+                    tooltip: _obscure ? 'Show password' : 'Hide password',
+                    icon: Icon(
+                      _obscure
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 20,
+                    ),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
                 ),
               ),
+
               if (_registering) ...[
                 const SizedBox(height: 8),
                 const Text(
@@ -110,33 +142,33 @@ class _SignInScreenState extends State<SignInScreen> {
                   style: TextStyle(fontSize: 12, color: GeoTheme.inkSoft, height: 1.35),
                 ),
               ],
-              const SizedBox(height: 20),
+
+              const SizedBox(height: 22),
               FilledButton(
-                onPressed: _busy ? null : _submit,
+                onPressed: (_busy || !_canSubmit) ? null : _submit,
                 child: _busy
                     ? const SizedBox(
                         height: 18,
                         width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
                     : Text(_registering ? 'Create account' : 'Sign in'),
               ),
-              const SizedBox(height: 4),
-              TextButton(
-                onPressed: _busy ? null : () => setState(() => _registering = !_registering),
-                child: Text(_registering
-                    ? 'I already have an account'
-                    : 'Create an account'),
+              const SizedBox(height: 6),
+              Center(
+                child: TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() => _registering = !_registering),
+                  child: Text(_registering
+                      ? 'I already have an account'
+                      : 'Create an account'),
+                ),
               ),
-              const Divider(height: 32),
-              TextButton.icon(
-                // Clearing the address drops the app back to the setup screen,
-                // which the root widget rebuilds automatically.
-                onPressed: _busy ? null : () => AppScope.of(context).clearBaseUrl(),
-                icon: const Icon(Icons.dns_outlined, size: 18),
-                label: const Text('Use a different server'),
-              ),
+
               if (_registering) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 const Text(
                   'An engineer account — the only kind that can sign an assessment '
                   'off — is granted by an administrator against a verified board '
@@ -144,9 +176,51 @@ class _SignInScreenState extends State<SignInScreen> {
                   style: TextStyle(fontSize: 11.5, color: GeoTheme.inkSoft, height: 1.4),
                 ),
               ],
+
+              const SizedBox(height: 36),
+              const _WhatThisIs(),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The honesty line, kept on the first screen.
+///
+/// It moved here when the server setup screen was removed. It belongs in front
+/// of someone before they use the app, not buried in an about page.
+class _WhatThisIs extends StatelessWidget {
+  const _WhatThisIs();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: GeoTheme.line),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('What this app is',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+          SizedBox(height: 8),
+          Text(
+            'A preliminary geotechnical screening tool. It runs published '
+            'engineering calculations on data you enter, and it shows you what '
+            'is missing when it cannot.\n\n'
+            'It is not a site investigation, it is not a foundation design, and '
+            'it does not certify anything as safe. A photograph cannot establish '
+            'bearing capacity, and this app never claims it can. Final design '
+            'must be carried out and sealed by an engineer registered where you '
+            'are building.',
+            style: TextStyle(fontSize: 12, color: GeoTheme.inkSoft, height: 1.45),
+          ),
+        ],
       ),
     );
   }

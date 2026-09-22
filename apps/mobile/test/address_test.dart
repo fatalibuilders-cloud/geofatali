@@ -4,6 +4,18 @@ import 'package:geofatali/state/app_state.dart';
 /// `_normalise` is private, so it is exercised through the public surface that
 /// uses it. These cases are the ones people actually type on a site.
 void main() {
+  group('the address this build talks to', () {
+    test('there is a compiled-in default, so nobody is asked for an IP', () {
+      expect(AppState.bakedInApiUrl, isNotEmpty);
+      expect(AppState.bakedInApiUrl, startsWith('http'));
+    });
+
+    test('with no override, the app uses the compiled-in address', () {
+      expect(AppState().baseUrl, AppState.bakedInApiUrl);
+      expect(AppState().hasOverride, isFalse);
+    });
+  });
+
   group('the server address someone types', () {
     test('a bare private address gets the backend port, not port 80', () {
       // The failure this prevents: typing 192.168.100.16, resolving to port 80,

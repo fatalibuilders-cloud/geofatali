@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'screens/projects_screen.dart';
-import 'screens/server_setup_screen.dart';
 import 'screens/sign_in_screen.dart';
 import 'state/app_state.dart';
 import 'theme.dart';
@@ -44,7 +43,8 @@ class _GeoFataliAppState extends State<GeoFataliApp> {
           animation: _state,
           builder: (context, _) {
             if (!_state.ready) return const _Splash();
-            if (!_state.isConfigured) return const ServerSetupScreen();
+            // Sign in is the front door. The server address is baked into the
+            // build and overridable in Settings, not asked for on launch.
             if (!_state.isSignedIn) return const SignInScreen();
             return const ProjectsScreen();
           },

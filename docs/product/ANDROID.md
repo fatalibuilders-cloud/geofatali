@@ -38,11 +38,26 @@ one later — you have to uninstall first.
 ## 2. You need a backend it can reach
 
 This is the part people are surprised by. **The app stores nothing on the
-phone.** It is a client for a GeoFatali server, and on first launch it asks for
-that server's address.
+phone.** It is a client for a GeoFatali server, and it signs you in against
+that server.
 
-So before the app does anything useful, the API has to be running somewhere the
-phone can reach, with a PostgreSQL + PostGIS database behind it.
+The address is compiled into the build, so nobody is asked for an IP address
+when they open the app. Set it with a repository variable named
+`GEOFATALI_API_URL` (GitHub → Settings → Secrets and variables → Actions →
+Variables), for example `https://api.geofatali.com`. The CI build passes it
+through as a `--dart-define`.
+
+With no variable set, the build falls back to `http://10.0.2.2:8000` — the
+Android emulator's alias for the host machine, which is useful for `flutter
+run` and useless on a real phone. The build prints a warning saying so, and a
+Play release refuses to build at all without a real address.
+
+Anyone running their own instance can override it in the app: **Settings →
+Server → Use my own server**. That is the escape hatch for self-hosting, not
+the front door.
+
+Either way, the API has to be running somewhere the phone can reach, with a
+PostgreSQL + PostGIS database behind it.
 
 ### Quickest: your laptop, same wifi as the phone
 
@@ -57,7 +72,8 @@ PYTHONPATH=../engineering-engine uvicorn app.main:app --host 0.0.0.0 --port 8000
 `--host 0.0.0.0` matters: the default only listens on the laptop itself.
 
 Find the laptop's address on the wifi (`ip addr` on Linux, `ipconfig getifaddr
-en0` on macOS) and enter it in the app — for example `192.168.1.24:8000`.
+en0` on macOS) and enter it under **Settings → Server → Use my own server** —
+for example `192.168.1.24:8000`.
 
 A private address entered without a port gets **8000**, which is what the
 backend runs on. Type the port explicitly and that is what is used.
