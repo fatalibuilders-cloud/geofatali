@@ -1,0 +1,5 @@
+fastapi>=0.115
+pydantic>=2.7
+uvicorn[standard]>=0.30
+# The engine is a local path dependency in development:
+#   pip install -e ../engineering-engine
