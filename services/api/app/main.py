@@ -50,6 +50,9 @@ from geofatali_engine.standards import METHOD_REFERENCES, STANDARDS
 from geofatali_engine.version import ENGINE_VERSION
 from geofatali_engine.warnings import InvalidInput
 
+from .db.base import engine as db_engine
+from .db.migrate import current_version
+from .routers import auth, ground, project_calculations, projects
 from .schemas import (
     BearingCapacityRequest,
     ClassificationRequest,
@@ -77,6 +80,14 @@ app = FastAPI(
 )
 
 API = "/api/v1"
+
+# Persistence: accounts, projects, the ground record, and the calculation
+# history. The stateless calculators below remain, because a quick bearing
+# check should not require an account.
+app.include_router(auth.router)
+app.include_router(projects.router)
+app.include_router(ground.router)
+app.include_router(project_calculations.router)
 
 
 def _record(record: CalculationRecord) -> JSONResponse:
@@ -126,7 +137,22 @@ async def _invalid_input(_request, exc: InvalidInput):
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"status": "ok", "engine_version": ENGINE_VERSION}
+    """Liveness, plus whether the database is reachable and up to date.
+
+    A service that answers 200 while its database is unreachable is worse than
+    one that answers 503: it keeps traffic flowing to something that cannot
+    store anything.
+    """
+    database: dict[str, Any]
+    try:
+        database = {"reachable": True, "schema_version": current_version(db_engine())}
+    except Exception as exc:  # noqa: BLE001 - the reason is reported, not swallowed
+        database = {"reachable": False, "error": type(exc).__name__}
+    return {
+        "status": "ok" if database["reachable"] else "degraded",
+        "engine_version": ENGINE_VERSION,
+        "database": database,
+    }
 
 
 # ───────────────────────────── reference data ─────────────────────────────

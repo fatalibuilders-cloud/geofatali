@@ -17,10 +17,10 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from .provenance import ProvenanceLedger
+from .provenance import Measurement, ProvenanceLedger, Source
 from .standards import METHOD_REFERENCES, Standard
 from .version import ENGINE_VERSION
-from .warnings import WarningList
+from .warnings import EngineeringWarning, Severity, WarningList
 
 
 class Status(str, Enum):
@@ -80,6 +80,51 @@ class CalculationRecord:
             "provenance": self.provenance.as_dict(),
             "preliminary": self.is_preliminary,
         }
+
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "CalculationRecord":
+        """Rebuild a record from its stored form.
+
+        The promise that a calculation is reproducible from stored inputs is
+        only real if the stored form can be read back. This is the inverse of
+        ``as_dict``: persistence layers round-trip through it, and the report
+        builder works on rehydrated records exactly as it does on fresh ones.
+        """
+        warnings = WarningList()
+        for item in payload.get("warnings") or []:
+            warnings.items.append(
+                EngineeringWarning(
+                    severity=Severity(item["severity"]),
+                    code=item["code"],
+                    message=item["message"],
+                    field_name=item.get("field"),
+                )
+            )
+        ledger = ProvenanceLedger()
+        for name, entry in (payload.get("provenance") or {}).items():
+            ledger.entries[name] = Measurement(
+                value=entry["value"],
+                unit=entry["unit"],
+                source=Source(entry["source"]),
+                reference=entry.get("reference"),
+                standard=entry.get("standard"),
+                note=entry.get("note"),
+            )
+        return cls(
+            calculation_type=payload["calculation_type"],
+            method=payload["method"],
+            status=Status(payload["status"]),
+            inputs=payload.get("inputs") or {},
+            results=payload.get("results") or {},
+            warnings=warnings,
+            provenance=ledger,
+            standard_id=payload.get("standard"),
+            standard_edition=payload.get("standard_edition"),
+            engine_version=payload.get("engine_version", ENGINE_VERSION),
+            created_at=payload.get("created_at")
+            or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        )
 
 
 def insufficient_data(

@@ -21,19 +21,23 @@ run in CI; nothing is listed as done because it is half-written.
 | 39–40 | Validation and warnings | INFO/WARNING/CRITICAL; missing input produces INSUFFICIENT_DATA naming the test that would fix it |
 | 24, 36 | Calculation records | Method, standard, edition, engine version, inputs, provenance and warnings on every result |
 | 41–42 | Report model | All 23 sections, standing limitations, revision control, Markdown renderer |
-| 34 | Database schema | Migration written with provenance and immutability constraints |
+| 34 | Database schema | Applied against real PostgreSQL 16 + PostGIS; provenance NOT NULL, EXCLUDE over layer depths, append-only triggers |
 | 35–36 | Calculation API | FastAPI over the engine; refusals are 200 with a status, impossible input is 422 |
-| 51 | Testing | Unit, regression, property and integration tests |
+| 35 | Persistence | Projects, boreholes, soil layers, SPT/DCP/CPT, lab tests, calculations, foundations, reports, reviews, audit log |
+| 6, 49 | Authentication and access control | Argon2id passwords, short-lived JWTs, five roles; every read scoped by user, a stranger's project is 404 not 403 |
+| 42, 50 | Immutability and audit | Calculations, reports and audit rows are append-only in the database; reports are revisioned |
+| 47 | Migrations | Numbered SQL files, applied in order, checksummed — an edited migration is refused |
+| 51 | Testing | Unit, regression, property, integration and persistence tests, the last against a real database |
 
 ## Not built yet
 
 | Spec section | Component | Why it is not here |
 |---|---|---|
-| 4, 59 | Flutter Android application | The whole client. The API it will call is defined and running |
+| 4, 59 | Flutter Android application | The whole client. The API it will call is defined, running and storing |
 | 31 | Pile capacity calculations | Returns NOT_IMPLEMENTED by design; needs validation against load-test data before release |
 | 32 | Video frame selection pipeline | Quality check, de-blur, dedupe, frame selection |
-| 35 | Persistence layer and auth | Schema is written; no repository or endpoint layer over it yet |
-| 41 | PDF rendering | The report is a structured document with a Markdown renderer; the PDF service is next |
+| 41 | PDF rendering | Reports are stored as a structured document plus Markdown; the PDF service is next |
+| 10, 34 | Media upload | `soil_media` is in the schema; no object storage or signed-URL layer yet |
 | 43–45 | Subscriptions, payments, metering | Schema for usage exists; no billing |
 | 46 | Admin dashboard | — |
 | 48 | Offline mode and sync | Belongs with the mobile client |
@@ -43,9 +47,14 @@ run in CI; nothing is listed as done because it is half-written.
 
 ## Acceptance criteria (spec section 62)
 
-Of the twenty criteria, the engine and API cover the calculation half: entering
-soil layers and field tests, running bearing capacity, sizing a footing, seeing
-foundation candidates with their warnings and missing data, and every
-calculation retaining its method, inputs, standard and engine version. The
-remaining criteria — register, save, generate PDF, share, engineer review —
-need the persistence layer, the PDF service and the mobile client.
+Seventeen of the twenty now pass end to end, proved by
+`services/api/tests/test_workflow.py`, which runs the whole path against a real
+database: register, create a project, select the sector, enter building
+information, create a borehole, add soil layers, enter SPT data, enter a load,
+run bearing capacity, size a footing, see foundation candidates with their
+warnings and missing data, save the project, review it as an engineer, and
+retain method, inputs, standard and engine version on every calculation.
+
+Outstanding: uploading a soil photo and receiving AI observations (needs object
+storage and a configured vision provider), and generating and sharing a PDF
+(the report is assembled and stored; only the rendering is missing).

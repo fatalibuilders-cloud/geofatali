@@ -278,10 +278,17 @@ CREATE TABLE reviews (
 );
 
 -- Spec section 50. Who changed what, when, and what it was before.
+--
+-- `project_id` deliberately carries NO foreign key, and `user_id` nulls rather
+-- than cascades. An audit log that is deleted along with the thing it records
+-- is not an audit log: "this project was deleted on 3 March by this account"
+-- is precisely the entry that must survive the deletion. The log holds actions
+-- and identifiers, never site data, so keeping it does not defeat a deletion
+-- request — the boreholes, layers, media and calculations are genuinely gone.
 CREATE TABLE audit_log (
     id          BIGSERIAL PRIMARY KEY,
     user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
-    project_id  UUID REFERENCES projects(id) ON DELETE CASCADE,
+    project_id  UUID,
     action      TEXT NOT NULL,
     entity      TEXT,
     entity_id   UUID,

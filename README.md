@@ -43,7 +43,7 @@ otherwise, and that is enforced in code rather than in a disclaimer:
 ```
 geofatali/
 ├── services/
-│   ├── engineering-engine/   pure Python, no dependencies, 200 tests
+│   ├── engineering-engine/   pure Python, no dependencies, 202 tests
 │   │   └── geofatali_engine/
 │   │       ├── standards.py      design standards and load combinations as data
 │   │       ├── sectors.py        20 industries and what governs each
@@ -57,8 +57,14 @@ geofatali/
 │   │       ├── foundations/      sizing, screening, and the construction steps
 │   │       ├── report/           the 23-section report model
 │   │       └── ai/               provider abstraction and the guardrails
-│   └── api/                  FastAPI over the engine, 21 tests
-├── database/migrations/      PostgreSQL + PostGIS schema
+│   └── api/                  FastAPI, persistence and auth, 89 tests
+│       └── app/
+│           ├── db/               engine, models, migration runner
+│           ├── repositories/     the only code that touches the database
+│           ├── routers/          auth, projects, ground record, calculations
+│           └── security.py       Argon2id, JWT, roles
+├── database/migrations/      PostgreSQL + PostGIS schema, applied in order
+├── scripts/test-db.sh        starts a throwaway database for the tests
 └── docs/
     ├── engineering/METHODS.md    every formula and its published source
     └── product/MVP-STATUS.md     what is built and what is not
@@ -67,16 +73,25 @@ geofatali/
 ## Run it
 
 ```bash
-cd services/engineering-engine
-pip install -e ".[dev]"
-python -m pytest                       # 200 tests
+./run-tests.sh          # 291 tests: engine, API, and persistence
 
-cd ../api
-pip install -r requirements.txt
-PYTHONPATH=../engineering-engine python -m pytest tests    # 21 tests
+# or separately
+cd services/engineering-engine && pip install -e ".[dev]" && python -m pytest
+cd ../api && pip install -r requirements.txt
+eval "$(../../scripts/test-db.sh)"      # a throwaway PostgreSQL + PostGIS
+PYTHONPATH=../engineering-engine python -m pytest
+
+# run it
+export DATABASE_URL=postgresql://user:pass@host/geofatali
+export JWT_SECRET=$(openssl rand -hex 32)
 PYTHONPATH=../engineering-engine uvicorn app.main:app --reload
 # http://localhost:8000/docs
 ```
+
+The persistence tests run against a real PostgreSQL database, not SQLite. The
+schema's value is in its constraints — an EXCLUDE that stops two soil layers
+claiming the same depth, triggers that refuse UPDATE on a stored calculation, a
+PostGIS column — and a substitute database has none of them.
 
 ## A worked example
 
@@ -130,6 +145,27 @@ conditions, and returns the construction sequence that starts:
 Steps marked `HOLD` are where work stops until an engineer has inspected.
 Steps with an arrow were added because of what the investigation found on
 **this** site.
+
+## What the database will not let you do
+
+Four of the product's promises are constraints, not conventions:
+
+- **A soil layer cannot overlap another** in the same borehole. A log saying
+  0.0–1.5 m is clay and 1.0–3.0 m is sand is two contradictory logs, and an
+  `EXCLUDE` constraint catches it at write time, when someone can still fix it.
+- **A stored calculation cannot be edited or deleted.** A trigger refuses both.
+  A re-run inserts a new row; the history keeps every version, including the
+  runs that returned `INSUFFICIENT_DATA`.
+- **A value cannot be stored without its provenance.** `classification_source`
+  is `NOT NULL`, so nothing enters the ground record without saying whether it
+  came from a laboratory, the field, an engineer or the vision model.
+- **An approval cannot exist without a signature.** A `CHECK` rejects an
+  `APPROVED` review with no `signed_at`, and the application requires the
+  reviewer to hold the engineer role and a board registration number.
+
+One user cannot see another's site data: every read is scoped by the requesting
+account, and someone else's project returns 404 rather than 403 — a 403 would
+confirm the id exists.
 
 ## Where this sits
 

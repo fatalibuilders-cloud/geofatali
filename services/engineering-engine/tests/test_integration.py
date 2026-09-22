@@ -283,6 +283,43 @@ class TestReproducibility:
         )
         assert replayed.results["ultimate_capacity_kpa"] == first.results["ultimate_capacity_kpa"]
 
+    def test_a_record_round_trips_through_its_stored_form(self):
+        """Reproducible from stored inputs means the stored form can be read back."""
+        from geofatali_engine.record import CalculationRecord
+
+        original = bearing_capacity(
+            soil=SoilParameters(
+                unit_weight_kn_m3=18, cohesion_kpa=25, friction_angle_deg=24,
+                friction_source=Source.ESTIMATED, unit_weight_source=Source.FIELD,
+            ),
+            footing=Footing(width_m=2.0, depth_m=1.5, shape="square"),
+            standard_id="kebs",
+        )
+        rehydrated = CalculationRecord.from_dict(original.as_dict())
+
+        assert rehydrated.as_dict() == original.as_dict()
+        assert rehydrated.method == original.method
+        assert rehydrated.status is original.status
+        assert rehydrated.is_preliminary == original.is_preliminary
+        assert len(rehydrated.warnings) == len(original.warnings)
+        assert (
+            rehydrated.provenance.entries["friction_angle_deg"].source
+            is Source.ESTIMATED
+        )
+        assert rehydrated.provenance.entries["unit_weight_kn_m3"].is_measured
+
+    def test_a_refusal_round_trips_as_a_refusal(self):
+        from geofatali_engine.record import CalculationRecord
+
+        refusal = bearing_capacity(
+            soil=SoilParameters(unit_weight_kn_m3=18),
+            footing=Footing(width_m=2.0, depth_m=1.5, shape="square"),
+        )
+        rehydrated = CalculationRecord.from_dict(refusal.as_dict())
+        assert rehydrated.status is Status.INSUFFICIENT_DATA
+        assert rehydrated.warnings.has_critical
+        assert rehydrated.results == {}
+
     def test_the_whole_record_serialises_to_json(self):
         import json
 
