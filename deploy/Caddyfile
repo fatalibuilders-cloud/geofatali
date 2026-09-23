@@ -1,0 +1,28 @@
+# TLS and reverse proxy for the GeoFatali API.
+#
+# Caddy gets a certificate from Let's Encrypt on first start and renews it
+# without being asked. Port 80 is redirected to 443 automatically.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	# The app sends a bearer token on every request. HSTS tells the phone
+	# never to try this host over plaintext again, so a downgrade cannot be
+	# forced by a network in between.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	reverse_proxy api:8000 {
+		health_uri /health
+		health_interval 30s
+	}
+}

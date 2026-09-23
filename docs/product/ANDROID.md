@@ -143,10 +143,10 @@ the open internet is a credential handed to whoever is listening.
 
 ### Properly: a hosted instance
 
-Any host that runs a container and a PostgreSQL with PostGIS. It needs
-`DATABASE_URL` and `JWT_SECRET` set, and the app then points at your domain over
-HTTPS. The service refuses to start in production without either of them rather
-than falling back to a default that would be the same on every deployment.
+**[deploy/README.md](../../deploy/README.md)** has the whole thing: a compose
+file with Caddy doing Let's Encrypt, on any small VPS with a domain pointed at
+it. Then set the `GEOFATALI_API_URL` repository variable and every build
+connects to it with no discovery and no configuration.
 
 ---
 

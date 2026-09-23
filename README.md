@@ -73,7 +73,15 @@ geofatali/
     └── product/MVP-STATUS.md     what is built and what is not
 ```
 
-## Run the backend
+## Hosting it
+
+The app is a client, so the backend has to live somewhere the phone can reach.
+**[deploy/README.md](deploy/README.md)** covers putting it on a small VPS with
+TLS: one compose file, a domain, about twenty minutes. Once it is up, set the
+`GEOFATALI_API_URL` repository variable and every APK connects to it
+immediately.
+
+## Run the backend locally
 
 ```bash
 cp .env.example .env

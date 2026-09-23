@@ -1,0 +1,66 @@
+# GeoFatali in production.
+#
+# Three containers: the API, PostgreSQL with PostGIS, and Caddy in front doing
+# TLS. Caddy obtains and renews a Let's Encrypt certificate on its own, which
+# is the whole reason it is here — the app refuses plaintext to anything that
+# is not a private address, and quite right too: a bearer token sent in clear
+# over the internet is a credential handed to whoever is listening.
+#
+#   cd deploy
+#   cp .env.prod.example .env
+#   # fill in DOMAIN, ACME_EMAIL, POSTGRES_PASSWORD, JWT_SECRET
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Nothing but Caddy is published. The API and the database are reachable only
+# on the internal network, so the only way in is through TLS on 443.
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-geofatali}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a strong POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-geofatali}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-geofatali}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: services/api/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofatali}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-geofatali}
+      JWT_SECRET: "${JWT_SECRET:?set JWT_SECRET - generate with openssl rand -hex 32}"
+      # Makes the service refuse to start rather than fall back to a default
+      # database or a shared signing key.
+      GEOFATALI_ENV: production
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on: [api]
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN to the hostname pointing at this machine}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL for certificate notices}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  caddy-data:      # holds the certificates; losing it means re-issuing them
+  caddy-config:

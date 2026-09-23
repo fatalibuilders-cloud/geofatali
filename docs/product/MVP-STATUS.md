@@ -28,6 +28,7 @@ run in CI; nothing is listed as done because it is half-written.
 | 42, 50 | Immutability and audit | Calculations, reports and audit rows are append-only in the database; reports are revisioned |
 | 47 | Migrations | Numbered SQL files, applied in order, checksummed — an edited migration is refused |
 | — | Server auto-discovery | The app sweeps the local /24 for a backend, so no address is ever typed |
+| — | Production deployment | Compose stack with Caddy and Let's Encrypt; the API and database are not published, only TLS on 443 |
 | 57 | Docker development environment | `docker compose up` brings up PostGIS, applies migrations and serves the API on every interface |
 | 51 | Testing | Unit, regression, property, integration and persistence tests, the last against a real database |
 | 4, 7, 59 | Flutter Android client | Auth, projects, boreholes, soil layers with a drawn profile, SPT, bearing capacity, foundation screening and the construction steps |
