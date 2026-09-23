@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/projects_screen.dart';
 import 'screens/sign_in_screen.dart';
 import 'state/app_state.dart';
+import 'widgets/brand_mark.dart';
 import 'theme.dart';
 
 void main() {
@@ -81,7 +82,7 @@ class _Splash extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.layers_outlined, size: 56, color: Colors.white),
+            BrandMark(size: 56, color: Colors.white),
             SizedBox(height: 16),
             Text('GeoFatali',
                 style: TextStyle(

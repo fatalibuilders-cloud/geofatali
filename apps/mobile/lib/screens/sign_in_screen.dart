@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import '../widgets/brand_mark.dart';
 import '../widgets/common.dart';
 
 /// The front door: sign in, or create an account.
@@ -69,7 +70,7 @@ class _SignInScreenState extends State<SignInScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.layers_outlined, size: 42, color: GeoTheme.navy),
+              const BrandMark(size: 42),
               const SizedBox(height: 16),
               const Text('GeoFatali',
                   style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700)),
