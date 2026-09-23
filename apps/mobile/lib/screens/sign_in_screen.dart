@@ -4,7 +4,6 @@ import '../main.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import 'settings_screen.dart';
 
 /// The front door: sign in, or create an account.
 ///
@@ -193,11 +192,13 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 }
 
-/// What the app is doing about finding a server.
+/// Whether the app can reach what it needs.
 ///
-/// Discovery happens without being asked, but not invisibly: a sweep takes a
-/// few seconds, and an unexplained pause on a sign-in screen reads as a broken
-/// app. When nothing is found this is also where the way out lives.
+/// There is deliberately no vocabulary here about servers, addresses, ports
+/// or networks. Finding the backend is the app's problem, not the user's, and
+/// it is solved without being narrated. All this says is whether the app is
+/// ready, still getting ready, or cannot connect — the same three states any
+/// other app shows, in the same words.
 class _ConnectionStatus extends StatelessWidget {
   const _ConnectionStatus();
 
@@ -207,81 +208,47 @@ class _ConnectionStatus extends StatelessWidget {
     return AnimatedBuilder(
       animation: state,
       builder: (context, _) {
-        final (icon, colour, label, detail) = switch (state.connection) {
-          ServerConnection.checking => (
-              Icons.sync,
-              GeoTheme.inkSoft,
-              'Connecting…',
-              null,
-            ),
-          ServerConnection.searching => (
-              Icons.wifi_find_outlined,
-              GeoTheme.info,
-              'Looking for your server on this network…',
-              state.scanTotal > 0
-                  ? '${state.scanned} of ${state.scanTotal} addresses'
-                  : null,
-            ),
-          ServerConnection.connected => (
-              Icons.check_circle_outline,
-              GeoTheme.pass,
-              'Connected',
-              Uri.tryParse(state.baseUrl)?.host,
-            ),
-          ServerConnection.notFound => (
-              Icons.error_outline,
-              GeoTheme.warning,
-              'No server found on this network',
-              'Start the backend, then search again.',
-            ),
-        };
+        // Connected is the normal case and says nothing: a banner announcing
+        // that things are working is noise.
+        if (state.connection == ServerConnection.connected) {
+          return const SizedBox.shrink();
+        }
+
+        final searching = state.connection != ServerConnection.notFound;
+        final colour = searching ? GeoTheme.inkSoft : GeoTheme.warning;
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: colour.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: colour.withValues(alpha: 0.25)),
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 17, color: colour),
-              const SizedBox(width: 9),
+              if (searching)
+                const SizedBox(
+                  height: 14,
+                  width: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                const Icon(Icons.cloud_off_outlined,
+                    size: 16, color: GeoTheme.warning),
+              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label,
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: colour)),
-                    if (detail != null) ...[
-                      const SizedBox(height: 2),
-                      Text(detail,
-                          style: const TextStyle(
-                              fontSize: 11.5, color: GeoTheme.inkSoft)),
-                    ],
-                  ],
+                child: Text(
+                  searching
+                      ? 'Getting ready…'
+                      : 'Cannot connect right now. Check your connection and try again.',
+                  style: TextStyle(fontSize: 12.5, color: colour, height: 1.35),
                 ),
               ),
-              if (state.connection == ServerConnection.notFound) ...[
+              if (!searching)
                 TextButton(
                   onPressed: state.rediscover,
-                  style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                   child: const Text('Retry'),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                  ),
-                  style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact),
-                  child: const Text('Enter it'),
-                ),
-              ],
             ],
           ),
         );

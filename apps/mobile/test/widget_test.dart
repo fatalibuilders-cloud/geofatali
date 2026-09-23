@@ -55,7 +55,7 @@ void main() {
     expect(button().onPressed, isNotNull);
   });
 
-  testWidgets('sign in stays disabled while no server has been found',
+  testWidgets('sign in is held back until the app can actually connect',
       (tester) async {
     await tester.pumpWidget(
         _wrap(const SignInScreen(), connection: ServerConnection.notFound));
@@ -66,24 +66,51 @@ void main() {
         find.widgetWithText(TextField, 'Password'), 'a-long-enough-passphrase');
     await tester.pump();
 
-    // Submitting would only produce a connection error; the screen says what
-    // is wrong and offers a way out instead.
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, 'Sign in'))
           .onPressed,
       isNull,
     );
-    expect(find.textContaining('No server found'), findsOneWidget);
+    expect(find.textContaining('Cannot connect right now'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Retry'), findsOneWidget);
   });
 
-  testWidgets('while searching, the screen says so rather than pausing',
+  testWidgets('while getting ready it shows a spinner, not an explanation',
       (tester) async {
     await tester.pumpWidget(
         _wrap(const SignInScreen(), connection: ServerConnection.searching));
     await tester.pump();
-    expect(find.textContaining('Looking for your server'), findsOneWidget);
+    expect(find.textContaining('Getting ready'), findsOneWidget);
+  });
+
+  testWidgets('when connected, nothing about connecting is shown at all',
+      (tester) async {
+    await tester.pumpWidget(
+        _wrap(const SignInScreen(), connection: ServerConnection.connected));
+    await tester.pump();
+    expect(find.textContaining('Getting ready'), findsNothing);
+    expect(find.textContaining('Cannot connect'), findsNothing);
+  });
+
+  testWidgets('the word server appears nowhere a user can see it',
+      (tester) async {
+    // The app finds the backend itself. Servers, addresses and ports are the
+    // app's problem and are never put in front of the person using it.
+    for (final connection in ServerConnection.values) {
+      await tester.pumpWidget(_wrap(const SignInScreen(), connection: connection));
+      await tester.pump();
+
+      final visible = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => (t.data ?? '').toLowerCase())
+          .join(' ');
+      expect(visible, isNot(contains('server')), reason: '$connection');
+      expect(visible, isNot(contains('address')), reason: '$connection');
+      expect(visible, isNot(contains('192.168')), reason: '$connection');
+      expect(visible, isNot(contains('port')), reason: '$connection');
+      expect(visible, isNot(contains('network')), reason: '$connection');
+    }
   });
 
   testWidgets('creating an account asks for a name and warns about the role',
