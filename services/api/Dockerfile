@@ -18,7 +18,8 @@ FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app:/engine
+    PYTHONPATH=/app:/engine \
+    GEOFATALI_MIGRATIONS_DIR=/database/migrations
 
 # Runs as a non-root user: a web process has no reason to be root, and a
 # container that is root by default is one mistake away from being a problem.

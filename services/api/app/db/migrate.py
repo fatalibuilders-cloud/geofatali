@@ -13,13 +13,42 @@ behind and is not recorded, so re-running after a fix is safe.
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-MIGRATIONS_DIR = Path(__file__).resolve().parents[4] / "database" / "migrations"
+def _find_migrations_dir() -> Path:
+    """Locate database/migrations, wherever this is running from.
+
+    Counting parent directories from __file__ only worked in a repository
+    checkout: inside the container the package sits at /app/app/db, so the
+    fifth parent does not exist and start-up died with an IndexError before
+    anything else ran.
+
+    So: an explicit environment variable first (the image sets it), then a
+    walk up the tree looking for the directory. Both are checked for actually
+    existing, rather than trusting a path that merely looks plausible.
+    """
+    configured = os.environ.get("GEOFATALI_MIGRATIONS_DIR")
+    if configured:
+        return Path(configured)
+
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "database" / "migrations"
+        if candidate.is_dir():
+            return candidate
+
+    # Nothing found. Return the repository-relative guess so the error names a
+    # real path rather than raising here, at import time, where it would be
+    # far harder to diagnose.
+    return here.parents[min(4, len(here.parents) - 1)] / "database" / "migrations"
+
+
+MIGRATIONS_DIR = _find_migrations_dir()
 
 _FILENAME = re.compile(r"^(\d{4})_([a-z0-9_]+)\.sql$")
 
@@ -41,7 +70,10 @@ def discover(directory: Path | None = None) -> list[tuple[str, str, Path]]:
     """Every migration file, in version order."""
     directory = directory or MIGRATIONS_DIR
     if not directory.is_dir():
-        raise MigrationError(f"No migrations directory at {directory}")
+        raise MigrationError(
+            f"No migrations directory at {directory}. Set GEOFATALI_MIGRATIONS_DIR "
+            "to where database/migrations lives."
+        )
     found: list[tuple[str, str, Path]] = []
     for path in sorted(directory.iterdir()):
         if path.suffix != ".sql":

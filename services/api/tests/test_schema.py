@@ -10,7 +10,14 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import create_engine, inspect, text
 
-from app.db.migrate import MigrationError, applied, current_version, discover, migrate
+from app.db.migrate import (
+    MigrationError,
+    _find_migrations_dir,
+    applied,
+    current_version,
+    discover,
+    migrate,
+)
 from app.db.models import NON_MODEL_TABLES, UNMAPPED_COLUMNS, Base
 
 
@@ -58,6 +65,45 @@ class TestMigrations:
                 for row in conn.execute(text("SELECT extname FROM pg_extension")).all()
             }
         assert {"postgis", "pgcrypto", "btree_gist"} <= names
+
+
+class TestMigrationsAreFound:
+    """Wherever the code is deployed, it has to find its own migrations.
+
+    This broke once: the path was counted in parent directories from the
+    module, which only held in a repository checkout. In the container the
+    package sits at /app/app/db and start-up died with an IndexError before
+    anything else ran.
+    """
+
+    def test_the_repository_layout_resolves(self):
+        found = _find_migrations_dir()
+        assert found.is_dir()
+        assert (found / "0001_init.sql").is_file()
+
+    def test_an_explicit_directory_wins(self, tmp_path, monkeypatch):
+        target = tmp_path / "database" / "migrations"
+        target.mkdir(parents=True)
+        monkeypatch.setenv("GEOFATALI_MIGRATIONS_DIR", str(target))
+        assert _find_migrations_dir() == target
+
+    def test_a_deep_layout_is_found_by_walking_up(self, tmp_path, monkeypatch):
+        # Stands in for the container: the package nested under a root that
+        # also holds database/migrations, with no environment variable set.
+        monkeypatch.delenv("GEOFATALI_MIGRATIONS_DIR", raising=False)
+        root = tmp_path / "app"
+        (root / "app" / "db").mkdir(parents=True)
+        (root / "database" / "migrations").mkdir(parents=True)
+        module = root / "app" / "db" / "migrate.py"
+        module.write_text("")
+        monkeypatch.setattr("app.db.migrate.__file__", str(module))
+        assert _find_migrations_dir() == root / "database" / "migrations"
+
+    def test_a_missing_directory_says_what_to_set(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("GEOFATALI_MIGRATIONS_DIR", str(tmp_path / "nowhere"))
+        with pytest.raises(MigrationError) as exc:
+            discover(_find_migrations_dir())
+        assert "GEOFATALI_MIGRATIONS_DIR" in str(exc.value)
 
 
 class TestSchemaDrift:
