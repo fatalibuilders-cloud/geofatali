@@ -1,0 +1,160 @@
+name: Desktop build
+
+# The desktop app is the same Flutter code as the phone app, built for
+# Windows, macOS and Linux. Each has to be built on its own operating system —
+# there is no cross-compiling a Windows .exe from Linux — so this is three
+# jobs, and the matrix keeps them one definition.
+#
+# The artifacts are unsigned. That is stated here and in docs/product/DESKTOP.md
+# rather than left for someone to discover from an operating system warning.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.47.5'
+  APP_DIR: apps/app
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    strategy:
+      # One platform failing to build should not hide whether the others do.
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            target: windows
+            artifact: geofatali-windows
+          - name: Linux
+            os: ubuntu-latest
+            target: linux
+            artifact: geofatali-linux
+          - name: macOS
+            os: macos-latest
+            target: macos
+            artifact: geofatali-macos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # GTK for the app itself; libsecret for the keystore the session token
+      # is kept in; jsoncpp is what the secure-storage plugin links against.
+      - name: Install the Linux build dependencies
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libsecret-1-dev libjsoncpp-dev
+
+      - name: Enable desktop support
+        run: flutter config --enable-${{ matrix.target }}-desktop
+
+      - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      # Analysis and tests run once, on Linux. They are platform-independent
+      # and running them three times would only make the build slower.
+      - name: Analyze
+        if: matrix.target == 'linux'
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        if: matrix.target == 'linux'
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter test
+
+      - name: Build
+        working-directory: ${{ env.APP_DIR }}
+        shell: bash
+        env:
+          # Repository variable (Settings -> Secrets and variables -> Actions
+          # -> Variables). Not a secret: a backend URL is not sensitive.
+          API_URL: ${{ vars.GEOFATALI_API_URL }}
+        run: |
+          if [ -n "$API_URL" ]; then
+            echo "Building against $API_URL"
+            flutter build ${{ matrix.target }} --release \
+              --dart-define=GEOFATALI_API_URL="$API_URL"
+          else
+            echo "::notice::GEOFATALI_API_URL is not set. This build will look for a \
+          backend on the machine it runs on (localhost:8000) and then on the local \
+          network, which is what a laptop running docker compose needs."
+            flutter build ${{ matrix.target }} --release
+          fi
+
+      # Windows machines that have never had a Visual Studio redistributable
+      # installed lack these two DLLs, and the app will not start without
+      # them. Shipping them beside the executable is what Flutter recommends.
+      - name: Bundle the Visual C++ runtime
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: |
+          $out = "${{ env.APP_DIR }}/build/windows/x64/runner/Release"
+          # VCToolsRedistDir is only set inside a Visual Studio developer
+          # shell, which this is not, so the redistributable is looked for
+          # where Visual Studio puts it.
+          $roots = @("${env:VCToolsRedistDir}", "C:/Program Files/Microsoft Visual Studio") |
+            Where-Object { $_ -and (Test-Path $_) }
+          $crt = $roots |
+            ForEach-Object { Get-ChildItem $_ -Recurse -Directory -Filter 'Microsoft.VC*.CRT' -ErrorAction SilentlyContinue } |
+            Where-Object { $_.FullName -match 'x64' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if ($crt) {
+            foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
+              Copy-Item (Join-Path $crt.FullName $dll) $out -ErrorAction SilentlyContinue
+            }
+            Write-Host "Bundled the runtime from $($crt.FullName)"
+          } else {
+            Write-Host "::warning::Could not find the Visual C++ redistributable; the app still runs on any machine that already has it."
+          }
+
+      - name: Package Windows
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "${{ env.APP_DIR }}/build/windows/x64/runner/Release/*" `
+            -DestinationPath geofatali-windows.zip
+
+      - name: Package Linux
+        if: matrix.target == 'linux'
+        run: |
+          tar -czf geofatali-linux.tar.gz \
+            -C "${{ env.APP_DIR }}/build/linux/x64/release/bundle" .
+
+      # ditto rather than zip, because a .app is a directory tree with
+      # symlinks in it and zip does not preserve them.
+      - name: Package macOS
+        if: matrix.target == 'macos'
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            "${{ env.APP_DIR }}/build/macos/Build/Products/Release/GeoFatali.app" \
+            geofatali-macos.zip
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            geofatali-windows.zip
+            geofatali-linux.tar.gz
+            geofatali-macos.zip
+          if-no-files-found: error
+          retention-days: 30

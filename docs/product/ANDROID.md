@@ -4,6 +4,9 @@ Two different things, in order: a test APK you sideload yourself, and a Google
 Play release. The first takes minutes. The second needs decisions only you can
 make.
 
+For the same app on a laptop, see
+[DESKTOP.md](DESKTOP.md) — same codebase, same account, same data.
+
 ---
 
 ## 1. A test APK on your own phone
@@ -137,7 +140,7 @@ dropped rather than rejected, which means they are not reaching the process.
 
 The app allows plain HTTP to private addresses only (`10.x`, `172.16–31.x`,
 `192.168.x`, localhost) — see
-`apps/mobile/android/app/src/main/res/xml/network_security_config.xml`. Anything
+`apps/app/android/app/src/main/res/xml/network_security_config.xml`. Anything
 on the public internet must be HTTPS, because a bearer token sent in clear over
 the open internet is a credential handed to whoever is listening.
 

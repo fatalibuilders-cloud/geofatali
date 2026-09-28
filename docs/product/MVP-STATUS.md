@@ -27,19 +27,23 @@ run in CI; nothing is listed as done because it is half-written.
 | 6, 49 | Authentication and access control | Argon2id passwords, short-lived JWTs, five roles; every read scoped by user, a stranger's project is 404 not 403 |
 | 42, 50 | Immutability and audit | Calculations, reports and audit rows are append-only in the database; reports are revisioned |
 | 47 | Migrations | Numbered SQL files, applied in order, checksummed — an edited migration is refused |
-| — | Server auto-discovery | The app sweeps the local /24 for a backend, so no address is ever typed |
+| — | Server auto-discovery | The app tries its build's address, then its own machine on desktop, then sweeps the local /24 — no address is ever typed |
 | — | Production deployment | Compose stack with Caddy and Let's Encrypt; the API and database are not published, only TLS on 443 |
 | 57 | Docker development environment | `docker compose up` brings up PostGIS, applies migrations and serves the API on every interface |
 | 51 | Testing | Unit, regression, property, integration and persistence tests, the last against a real database |
-| 4, 7, 59 | Flutter Android client | Auth, projects, boreholes, soil layers with a drawn profile, SPT, bearing capacity, foundation screening and the construction steps |
+| 4, 7, 59 | Flutter client | Auth, projects, boreholes, soil layers with a drawn profile, SPT, bearing capacity, foundation screening and the construction steps |
+| 4 | Desktop app (Windows, macOS, Linux) | The same codebase and the same account as the phone; all state is server-side, so the two share everything with nothing to pair or sync |
 | 60 | Design system | Engineering-software look: restrained palette, tabular figures, provenance on every value, preliminary banner throughout |
 | — | Android release build | CI builds a sideloadable APK on every push and a Play App Bundle on a version tag |
+| — | Desktop release builds | CI builds Windows, macOS and Linux artifacts on every push; unsigned, which docs/product/DESKTOP.md states plainly |
 
 ## Not built yet
 
 | Spec section | Component | Why it is not here |
 |---|---|---|
 | 48 | Offline mode and sync on the client | The app needs the server for everything; a borehole log is exactly what you record with no signal |
+| — | Signed desktop builds and installers | Authenticode and Apple notarisation both need a paid account bought against a registered company |
+| 60 | Platform icons | The GeoFatali mark is drawn in the app but not exported to .ico, .icns or the Android mipmaps, so launchers show the stock Flutter icon |
 | 31 | Pile capacity calculations | Returns NOT_IMPLEMENTED by design; needs validation against load-test data before release |
 | 32 | Video frame selection pipeline | Quality check, de-blur, dedupe, frame selection |
 | 41 | PDF rendering | Reports are stored as a structured document plus Markdown; the PDF service is next |

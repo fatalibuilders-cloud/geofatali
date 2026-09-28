@@ -18,7 +18,7 @@ on:
 
 env:
   FLUTTER_VERSION: '3.47.5'
-  APP_DIR: apps/mobile
+  APP_DIR: apps/app
 
 jobs:
   build:

@@ -189,27 +189,36 @@ One user cannot see another's site data: every read is scoped by the requesting
 account, and someone else's project returns 404 rather than 403 — a 403 would
 confirm the id exists.
 
-## The Android app
+## The app
 
-`apps/mobile` is a Flutter client for the API: sign in, create a project,
-log a borehole and its strata, run a bearing capacity calculation, screen the
-foundation options, and read the construction sequence for the one you choose —
-with the hold points marked and the steps that exist because of *this* site
-labelled with what triggered them.
+`apps/app` is one Flutter codebase that runs on **Android, Windows, macOS and
+Linux**: sign in, create a project, log a borehole and its strata, run a
+bearing capacity calculation, screen the foundation options, and read the
+construction sequence for the one you choose — with the hold points marked and
+the steps that exist because of *this* site labelled with what triggered them.
 
-It is a client, not a copy: the phone stores nothing but your session, and on
-first launch it asks for the address of your GeoFatali server. That is
-deliberate — the engineering runs in one place, where it is tested.
+The phone and the desktop are the same application, not two products. Neither
+holds any site data: everything lives on the backend, so signing in with the
+same email on a laptop shows the projects logged on a phone that morning, and a
+layer logged on site is on the laptop before anyone gets back to the office.
+There is no pairing, no sync and nothing to export between them.
 
-The APK is built by GitHub Actions rather than on a laptop.
-**[docs/product/ANDROID.md](docs/product/ANDROID.md)** covers getting it onto a
-phone, running a backend it can reach, and what Google Play needs.
+Nobody is asked for a server address. The app looks for its backend itself —
+the address this build was made with, then the machine it is running on, then
+the local network — and remembers what it finds.
+
+Builds are made by GitHub Actions rather than on a laptop:
+
+* **[docs/product/ANDROID.md](docs/product/ANDROID.md)** — the APK, getting it
+  onto a phone, and what Google Play needs.
+* **[docs/product/DESKTOP.md](docs/product/DESKTOP.md)** — the Windows, macOS
+  and Linux builds, and running a backend on the same machine.
 
 ```bash
-cd apps/mobile
+cd apps/app
 flutter pub get
-flutter test        # 23 tests
-flutter analyze
+flutter test        # 73 tests
+flutter analyze --fatal-infos
 ```
 
 ## Where this sits
@@ -218,9 +227,9 @@ The engine is deliberately dependency-free and knows nothing about HTTP,
 databases or any AI vendor. That is what makes every number it produces
 reproducible from stored inputs, testable, and safe to move to another runtime.
 
-The Flutter Android client, persistence, PDF rendering, billing and the pile
-module are not built yet. `docs/product/MVP-STATUS.md` says exactly what is
-done and what is not, section by section against the specification.
+PDF rendering, billing, offline working and the pile module are not built yet.
+`docs/product/MVP-STATUS.md` says exactly what is done and what is not, section
+by section against the specification.
 
 ---
 
