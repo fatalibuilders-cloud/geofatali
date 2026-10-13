@@ -357,7 +357,14 @@ def screen_foundations(data: ScreeningInput) -> CalculationRecord:
         ground_fail = any(c.name == "Ground conditions" and c.verdict is Verdict.FAIL for c in candidate.criteria)
         if fails:
             candidate.status = CandidateStatus.NOT_RECOMMENDED
-            if ground_fail and ftype in ("strip", "pad", "combined", "raft"):
+            # The escape hatch — "viable once the bad soil is taken out" —
+            # applies only when the ground is the ONLY thing that failed.
+            # Digging out expansive clay does not fix a bearing utilisation of
+            # 2.5 or a settlement four times the limit, and promoting a
+            # candidate that fails those as well tells someone a foundation is
+            # buildable when it is not.
+            ground_is_the_only_failure = len(fails) == 1 and ground_fail
+            if ground_is_the_only_failure and ftype in ("strip", "pad", "combined", "raft"):
                 candidate.conditions.append(
                     "Viable if the problem soil is removed and replaced with compacted "
                     "engineered fill first, or if the foundation is taken below it. "

@@ -157,6 +157,34 @@ class TestScreening:
         if raft:
             assert raft["status"] != CandidateStatus.NOT_RECOMMENDED.value or True
 
+    def test_removing_the_bad_soil_rescues_a_candidate_that_fails_only_on_ground(self):
+        record = screen_foundations(self._good_ground(
+            findings=GroundFindings(
+                expansive_clay=True, black_cotton_depth_m=1.6, groundwater_depth_m=8.0
+            ),
+        ))
+        strip = _candidate(record, "strip")
+        assert strip["status"] == CandidateStatus.CANDIDATE_WITH_CONDITIONS.value
+        assert any("removed and replaced" in c for c in strip["conditions"])
+
+    def test_bad_soil_is_not_an_excuse_for_a_candidate_that_also_fails_bearing(self):
+        """Digging out the clay does not fix a bearing utilisation of 2.5.
+
+        The escape hatch used to fire on any ground failure, which promoted a
+        footing that was also 2.5 times over on bearing and four times over on
+        settlement to CANDIDATE_WITH_CONDITIONS. That reads as "buildable once
+        you remove the clay", and it is not.
+        """
+        record = screen_foundations(self._good_ground(
+            utilisation=2.5, total_settlement_mm=200,
+            findings=GroundFindings(organic_or_peat=True, groundwater_depth_m=0.5),
+        ))
+        for ftype in ("strip", "pad", "raft"):
+            candidate = _candidate(record, ftype)
+            if candidate:
+                assert candidate["status"] == CandidateStatus.NOT_RECOMMENDED.value
+        assert "NO_VIABLE_CANDIDATE" in record.warnings.codes()
+
     def test_the_sector_decides_which_foundations_are_even_screened(self):
         roads = screen_foundations(ScreeningInput(sector_id="roads"))
         types = {c["foundation_type"] for c in roads.results["candidates"]}
